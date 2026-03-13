@@ -34,3 +34,6 @@ vim.api.nvim_create_autocmd({"FocusGained", "InsertLeave"}, {
   end,
 })
 ```
+
+## 参考项目
+[im-select.nvim](https://github.com/keaising/im-select.nvim)
