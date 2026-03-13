@@ -35,5 +35,54 @@ vim.api.nvim_create_autocmd({"FocusGained", "InsertLeave"}, {
 })
 ```
 
+
+## 3. 不依赖set_ime_en.exe的方法，纯lua实现
+```lua
+-- ====== Windows 下利用 LuaJIT FFI 极速切换输入法 ======
+
+local ffi = require("ffi")
+
+-- 1. 声明需要用到的 Windows C API 和类型
+ffi.cdef[[
+    typedef void* HWND;
+    typedef unsigned int UINT;
+    typedef long LRESULT;
+    
+    HWND GetForegroundWindow();
+    HWND ImmGetDefaultIMEWnd(HWND);
+    LRESULT SendMessageA(HWND, UINT, UINT, LRESULT);
+]]
+
+-- 2. 加载 Windows 的 user32 和 imm32 动态链接库
+local user32 = ffi.load("user32.dll")
+local imm32 = ffi.load("imm32.dll")
+
+-- 3. 封装底层调用函数
+local function set_ime_en_fast()
+    local hwnd = user32.GetForegroundWindow()
+    if hwnd ~= nil then
+        local imeHwnd = imm32.ImmGetDefaultIMEWnd(hwnd)
+        if imeHwnd ~= nil then
+            -- 0x0283: WM_IME_CONTROL
+            -- 0x0006: IMC_SETOPENSTATUS
+            -- 0: 英文状态 (关闭中文)
+            user32.SendMessageA(imeHwnd, 0x0283, 0x0006, 0)
+        end
+    end
+end
+
+-- 4. 绑定到 Neovim 事件
+vim.api.nvim_create_autocmd({"FocusGained", "InsertLeave"}, {
+  pattern = "*",
+  callback = function()
+    local mode = vim.api.nvim_get_mode().mode
+    if mode == 'n' or mode:match('^[vV\x16]') then
+        -- 直接在内存中极速调用，不需要 jobstart
+        set_ime_en_fast()
+    end
+  end,
+})
+```
+
 ## 参考项目
 [im-select.nvim](https://github.com/keaising/im-select.nvim)
